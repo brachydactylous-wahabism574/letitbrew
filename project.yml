@@ -1,0 +1,175 @@
+name: LetItBrew
+
+options:
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "14.0"
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: MV2UL94MDC
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_HARDENED_RUNTIME: true
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    SWIFT_VERSION: "6.0"
+    VERSIONING_SYSTEM: apple-generic
+    CURRENT_PROJECT_VERSION: 19
+    MARKETING_VERSION: 0.5.0
+
+targets:
+  LetItBrewAppCore:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: Sources/LetItBrewAppCore
+    settings:
+      base:
+        PRODUCT_NAME: LetItBrewAppCore
+        PRODUCT_BUNDLE_IDENTIFIER: com.ruban24.letitbrew.app-core
+        SKIP_INSTALL: true
+
+  LetItBrewCore:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: Sources/LetItBrewCore
+    settings:
+      base:
+        PRODUCT_NAME: LetItBrewCore
+        PRODUCT_BUNDLE_IDENTIFIER: com.ruban24.letitbrew.core
+        SKIP_INSTALL: true
+
+  LetItBrewDaemonCore:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: Sources/LetItBrewDaemonCore
+    dependencies:
+      - target: LetItBrewCore
+    settings:
+      base:
+        PRODUCT_NAME: LetItBrewDaemonCore
+        PRODUCT_BUNDLE_IDENTIFIER: com.ruban24.letitbrew.daemon-core
+        SKIP_INSTALL: true
+
+  LetItBrew:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/LetItBrewApp
+    info:
+      path: Config/LetItBrew-Info.plist
+      properties:
+        CFBundleDisplayName: "Let It Brew"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSUIElement: true
+        NSHighResolutionCapable: true
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: false
+        PRODUCT_NAME: "Let It Brew"
+        PRODUCT_MODULE_NAME: LetItBrew
+        EXECUTABLE_NAME: LetItBrew
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.ruban24.letitbrew.dev
+          LETITBREW_DAEMON_LABEL: com.ruban24.letitbrew.dev.daemon
+          LETITBREW_DAEMON_PLIST: $(SRCROOT)/Config/LaunchDaemons/com.ruban24.letitbrew.dev.daemon.plist
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.ruban24.letitbrew
+          LETITBREW_DAEMON_LABEL: com.ruban24.letitbrew.daemon
+          LETITBREW_DAEMON_PLIST: $(SRCROOT)/Config/LaunchDaemons/com.ruban24.letitbrew.daemon.plist
+    dependencies:
+      - target: LetItBrewDaemon
+        embed: false
+      - target: LetItBrewCLI
+        embed: false
+      - target: LetItBrewAppCore
+      - target: LetItBrewDaemonCore
+      - target: LetItBrewCore
+    postBuildScripts:
+      - name: Embed signed launch daemon and update support
+        basedOnDependencyAnalysis: false
+        script: |
+          set -eu
+          services_dir="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Library/LaunchServices"
+          plists_dir="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Library/LaunchDaemons"
+          helpers_dir="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
+          update_support_dir="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/UpdateSupport"
+          /bin/mkdir -p "$services_dir" "$plists_dir" "$helpers_dir" "$update_support_dir"
+          /usr/bin/install -m 755 "$BUILT_PRODUCTS_DIR/LetItBrewDaemon" "$services_dir/LetItBrewDaemon"
+          /usr/bin/install -m 755 "$BUILT_PRODUCTS_DIR/letitbrew" "$helpers_dir/letitbrew"
+          /usr/bin/install -m 644 "$LETITBREW_DAEMON_PLIST" "$plists_dir/$LETITBREW_DAEMON_LABEL.plist"
+          /usr/bin/install -m 755 "$SRCROOT/scripts/run-update.sh" "$update_support_dir/run-update.sh"
+          /usr/bin/install -m 755 "$SRCROOT/scripts/upgrade-installed-app.sh" "$update_support_dir/upgrade-installed-app.sh"
+          /usr/bin/install -m 755 "$SRCROOT/scripts/verify-artifact.sh" "$update_support_dir/verify-artifact.sh"
+          /usr/bin/install -m 644 "$SRCROOT/scripts/lib-power-baseline.sh" "$update_support_dir/lib-power-baseline.sh"
+          # Files created beneath a file-provider-managed directory can inherit
+          # Finder metadata that codesign rejects. Strip metadata before Xcode
+          # applies the outer app signature; embedded Mach-O signatures remain.
+          /usr/bin/xattr -cr "$TARGET_BUILD_DIR/$WRAPPER_NAME"
+
+  LetItBrewDaemon:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Sources/LetItBrewDaemon
+    dependencies:
+      - target: LetItBrewDaemonCore
+      - target: LetItBrewCore
+    settings:
+      base:
+        # A standalone launchd tool does not use an app provisioning profile.
+        # Prevent Xcode from injecting get-task-allow/application-identifier.
+        # Trust is carried by the Apple-issued code signature and Team ID.
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
+        ENTITLEMENTS_REQUIRED: false
+        CREATE_INFOPLIST_SECTION_IN_BINARY: true
+        GENERATE_INFOPLIST_FILE: true
+        PRODUCT_NAME: LetItBrewDaemon
+        SKIP_INSTALL: true
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.ruban24.letitbrew.dev.daemon
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.ruban24.letitbrew.daemon
+
+  LetItBrewCLI:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Sources/letitbrew
+    dependencies:
+      - target: LetItBrewCore
+    settings:
+      base:
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
+        ENTITLEMENTS_REQUIRED: false
+        CREATE_INFOPLIST_SECTION_IN_BINARY: true
+        GENERATE_INFOPLIST_FILE: true
+        PRODUCT_NAME: letitbrew
+        SKIP_INSTALL: true
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.ruban24.letitbrew.dev.cli
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.ruban24.letitbrew.cli
+
+schemes:
+  LetItBrew:
+    build:
+      targets:
+        LetItBrew: all
+        LetItBrewDaemon: all
+        LetItBrewCLI: all
+    run:
+      config: Debug
+    archive:
+      config: Release

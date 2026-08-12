@@ -1,0 +1,106 @@
+import Foundation
+import Testing
+@testable import LetItBrewAppCore
+
+private func helperStub() throws -> URL {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: directory, withIntermediateDirectories: true
+    )
+    let url = directory.appendingPathComponent("helper.sh")
+    let script = """
+    #!/bin/sh
+    if [ "$2" = "claude" ]; then
+      trap '' TERM
+      while :; do :; done
+    fi
+    printf 'handled %s' "$2"
+    """
+    try Data(script.utf8).write(to: url)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o700], ofItemAtPath: url.path
+    )
+    return url
+}
+
+@Test func oneTimedOutAgentDoesNotPreventTheOtherAgentAttempt() throws {
+    let helper = try helperStub()
+    defer { try? FileManager.default.removeItem(at: helper.deletingLastPathComponent()) }
+
+    let results = AgentHelperBatchRunner.run(
+        executableURL: helper,
+        command: "uninstall",
+        agentIDs: ["claude", "codex"],
+        timeout: 5,
+        terminationGrace: 0.1
+    )
+
+    #expect(results.map(\.agentID) == ["claude", "codex"])
+    #expect(results[0].timedOut)
+    #expect(!results[0].succeeded)
+    #expect(results[1].succeeded)
+    #expect(results[1].output == "handled codex")
+}
+
+@Test func successfulDisconnectsPersistIndependently() {
+    let results = [
+        AgentHelperOperationResult(
+            agentID: "claude", status: -1, output: "timed out", timedOut: true
+        ),
+        AgentHelperOperationResult(
+            agentID: "codex", status: 0, output: "", timedOut: false
+        ),
+    ]
+
+    let persisted = AgentDisconnectPersistence.mergingSuccessful(
+        results, into: ["already-disconnected"]
+    )
+
+    #expect(persisted == ["already-disconnected", "codex"])
+}
+
+@Test func everyRequestedDisconnectIntentPersistsRegardlessOfHelperOutcome() {
+    let persisted = AgentDisconnectPersistence.recordingIntent(
+        for: ["claude", "codex"],
+        into: ["already-disconnected"]
+    )
+
+    #expect(persisted == ["already-disconnected", "claude", "codex"])
+}
+
+@Test func recordedDisconnectIntentSuppressesAutomaticMutationUntilConnectClearsIt() {
+    let intents = AgentDisconnectPersistence.recordingIntent(
+        for: ["claude", "codex"],
+        into: []
+    )
+
+    #expect(!AgentAutomaticConnectionPolicy.mayMutate(
+        agentID: "claude", recordedDisconnectIntents: intents
+    ))
+    let afterConnect = AgentDisconnectPersistence.clearingIntent(
+        for: "claude", from: intents
+    )
+    #expect(AgentAutomaticConnectionPolicy.mayMutate(
+        agentID: "claude", recordedDisconnectIntents: afterConnect
+    ))
+    #expect(!AgentAutomaticConnectionPolicy.mayMutate(
+        agentID: "codex", recordedDisconnectIntents: afterConnect
+    ))
+}
+
+@Test func disconnectCompletionHasOnlyTerminalPerAgentFollowUps() {
+    let results = [
+        AgentHelperOperationResult(
+            agentID: "claude", status: 0, output: "removed", timedOut: false
+        ),
+        AgentHelperOperationResult(
+            agentID: "codex", status: -1, output: "timed out", timedOut: true
+        ),
+    ]
+
+    #expect(AgentDisconnectCompletionPolicy.followUps(for: results) == [
+        .markDisconnected(agentID: "claude"),
+        .showFailure(results[1]),
+    ])
+}

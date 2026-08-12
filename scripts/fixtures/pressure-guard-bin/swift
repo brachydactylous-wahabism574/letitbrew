@@ -1,0 +1,3 @@
+#!/bin/bash
+/usr/bin/touch "$PRESSURE_GUARD_HARNESS_ROOT/swift-was-called"
+exit 23

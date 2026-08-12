@@ -1,0 +1,2 @@
+#!/bin/bash
+echo "$PRESSURE_GUARD_HARNESS_ROOT/unsafe-root"

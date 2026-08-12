@@ -1,0 +1,65 @@
+import Testing
+@testable import LetItBrewAppCore
+
+private final class PauseStore: LetItBrewPausePersisting, @unchecked Sendable {
+    var storedValue: Bool
+
+    init(_ storedValue: Bool = false) {
+        self.storedValue = storedValue
+    }
+
+    func loadPause() -> Bool {
+        storedValue
+    }
+
+    func savePause(_ isPaused: Bool) {
+        storedValue = isPaused
+    }
+}
+
+@Test func automaticHoldsPassThroughWhileLetItBrewIsRunning() {
+    let controller = LetItBrewPauseController(persistence: PauseStore())
+
+    #expect(!controller.isPaused)
+    #expect(controller.resolve(systemHold: true, lidClosedHold: true)
+            == LetItBrewHoldIntent(system: true, lidClosed: true))
+    #expect(controller.resolve(systemHold: true, lidClosedHold: false)
+            == LetItBrewHoldIntent(system: true, lidClosed: false))
+}
+
+@Test func allowingSleepSuppressesBothHoldsAndPersistsAcrossRelaunch() {
+    let store = PauseStore()
+    var controller = LetItBrewPauseController(persistence: store)
+
+    controller.pause()
+
+    #expect(controller.isPaused)
+    #expect(store.storedValue)
+    for _ in 0..<5 {
+        #expect(controller.resolve(systemHold: true, lidClosedHold: true)
+                == LetItBrewHoldIntent(system: false, lidClosed: false))
+    }
+
+    let relaunched = LetItBrewPauseController(persistence: store)
+    #expect(relaunched.isPaused)
+    #expect(relaunched.resolve(systemHold: true, lidClosedHold: true)
+            == LetItBrewHoldIntent(system: false, lidClosed: false))
+}
+
+@Test func explicitResumeClearsThePersistedPauseAndRestoresCurrentWorkHolds() {
+    let store = PauseStore(true)
+    var controller = LetItBrewPauseController(persistence: store)
+
+    #expect(controller.resolve(systemHold: true, lidClosedHold: true)
+            == LetItBrewHoldIntent(system: false, lidClosed: false))
+
+    controller.resume()
+
+    #expect(!controller.isPaused)
+    #expect(!store.storedValue)
+    #expect(controller.resolve(systemHold: true, lidClosedHold: true)
+            == LetItBrewHoldIntent(system: true, lidClosed: true))
+
+    let relaunched = LetItBrewPauseController(persistence: store)
+    #expect(!relaunched.isPaused)
+}
